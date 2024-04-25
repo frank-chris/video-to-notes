@@ -30,12 +30,9 @@ class TextToNotes:
         with open(path, 'r') as file:
             text = file.read()
         return text
-    
-    def generate_summary(self, path: str):
-        text = self.read_text(path)
-        num_words = len(text.split())
+
+    def generate_summary_chunk(self, text: str, summary_length: int = 200): 
         context_prompt = f"Here's a text transcript of a lecture: \n\n{text}"
-        summary_length = 200
         summary_prompt = f"Summarize the lecture to a {summary_length} words (approximate) paragraph."
         dialogs: List[Dialog] = [
             [
@@ -53,11 +50,36 @@ class TextToNotes:
 
         return results[0]['generation']['content']
 
+    def generate_summary(self, input_path: str, save_path: Optional[str] = None):
+        text = self.read_text(input_path).split()
+        total_words = len(text)
+
+        # divide text into chunks that are equal in size and do not exceed max_seq_len (in terms of words)
+        num_chunks = total_words // self.max_seq_len + 1
+        chunk_size = total_words // num_chunks + 1
+        chunks = [text[i:i + chunk_size] for i in range(0, total_words, chunk_size)]
+
+        # generate summaries for each chunk 
+        summaries = []  
+        for chunk in chunks:
+            text = ' '.join(chunk)
+            summary = self.generate_summary_chunk(text)
+            summaries.append(summary)
+
+        # combine summaries into one
+        summary = ' '.join(summaries)
+
+        if save_path:
+            with open(save_path, 'w') as file:
+                file.write(summary)
+
+        return summary
+
 
 if __name__ == "__main__":
-    ckpt_dir = "../../llama3/Meta-Llama-3-8B-Instruct/"
-    tokenizer_path = "../../llama3/Meta-Llama-3-8B-Instruct/tokenizer.model"
-    text_path = "../../engraft.txt"
+    ckpt_dir = "../llama3/Meta-Llama-3-8B-Instruct/"
+    tokenizer_path = "../llama3/Meta-Llama-3-8B-Instruct/tokenizer.model"
+    text_path = "../engraft.txt"
     text_to_notes = TextToNotes(ckpt_dir, tokenizer_path)
-    summary = text_to_notes.generate_summary(text_path) 
-    print(summary)  
+    summary = text_to_notes.generate_summary(text_path, save_path="../summary.txt") 
+    print(summary)
