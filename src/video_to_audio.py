@@ -13,7 +13,7 @@ class AudioExtractor:
 
 
 if __name__ == "__main__":
-    video_path = 'cse290-w24-lec8.mp4'
-    audio_path = 'audio.mp3'
+    video_path = 'C:\\Users\\shiva\\Desktop\\Spring 2024\\video-to-notes\\src\\cse290-w24-lec8.mp4'
+    audio_path = 'cse290-w24-lec8-audio.mp3'
     extractor = AudioExtractor(video_path, audio_path)
     extractor.extract_audio()
