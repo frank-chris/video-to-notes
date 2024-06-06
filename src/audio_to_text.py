@@ -8,23 +8,23 @@ class WhisperTranscriber:
         result = self.model.transcribe(audio_file_path)
         return result
 
-    def save_transcription(self, transcription_result, output_file_path):
-        with open(output_file_path, "w") as f:
-            f.write("Full Transcription:\n")
-            f.write(transcription_result["text"])
-            f.write("\n\nDetailed Segments with Timestamps:\n")
-            for segment in transcription_result["segments"]:
-                start_time = segment["start"]
-                end_time = segment["end"]
-                text = segment["text"]
-                f.write(f"{start_time:.2f} - {end_time:.2f}: {text}\n")
+    def save_transcript(self, transcription_result, output_file_path, timestamps=True):
+        with open(output_file_path, "w") as f:            
+            if timestamps:
+                for segment in transcription_result["segments"]:
+                    start_time = segment["start"]
+                    end_time = segment["end"]
+                    text = segment["text"]
+                    f.write(f"{text[:-1]} (timestamp: {start_time:.2f}).")
+            else:
+                f.write(transcription_result["text"])
     
 
 if __name__ == "__main__":
     transcriber = WhisperTranscriber()
-    audio_path = "cse290-w24-lec8-audio.mp3"
+    audio_path = "../engraft.mp3"
     transcription_result = transcriber.transcribe(audio_path)
-    output_file_path = "transcription_result_with_timestamp.txt"
-    transcriber.save_transcription(transcription_result, output_file_path)
+    output_file_path = "../transcription_result_with_timestamp.txt"
+    transcriber.save_transcript(transcription_result, output_file_path)
     print("Transcription saved to", output_file_path)
 

@@ -1,0 +1,104 @@
+<html data-theme="emerald">
+    <head>
+        <meta http-equiv="cache-control" content="no-cache" charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.2/dist/full.min.css" rel="stylesheet" type="text/css" />
+        <script src="https://cdn.tailwindcss.com"></script>
+        <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
+        <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+        <title>Video2Notes</title>
+    </head>
+    <body>
+      <!-- navbar -->
+      <div class="navbar bg-base-100">
+        <div class="flex-none">
+          <button class="btn btn-square btn-ghost">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-5 h-5 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+          </button>
+        </div>
+        <div class="flex-1">
+          <a class="btn btn-ghost text-xl">Video2Notes</a>
+        </div>
+        <div class="flex-none">
+          <button class="btn btn-square btn-ghost">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="inline-block w-5 h-5 stroke-current"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z"></path></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- main content --> 
+      <!-- two columns -->
+      <div class="flex flex-row gap-2 p-4 justify-between">
+        <div class="flex flex-col gap-8 px-4 w-3/5">
+          <div class="card bg-base-200 w-full">
+            <div class="card-body">
+              <h2 class="card-title mb-4">Upload Video</h2>
+              <form method="post" enctype="multipart/form-data">
+                <input type="file" name="lecturefile" class="file-input file-input-bordered w-full max-w-xs" required/>
+                <br>
+                <br>
+                <div class="flex flex-row gap-2 justify-start">
+                  <label class="label cursor-pointer justify-start">
+                    <span class="label-text mr-2">Glossary</span> 
+                    <input type="checkbox" name="glossary" checked="checked" class="checkbox mr-8" />
+                  </label>
+                  <label class="label cursor-pointer justify-start">
+                    <span class="label-text mr-2">Takeaways</span> 
+                    <input type="checkbox" name="takeaways" checked="checked" class="checkbox mr-8" />
+                  </label>
+                  <label class="label cursor-pointer justify-start">
+                    <span class="label-text mr-2">Diagrams/Images/Equations</span> 
+                    <input type="checkbox" name="diagrams" checked="checked" class="checkbox mr-8" />
+                  </label>
+                </div>
+                <button type="submit" class="btn btn-primary mt-4 uppercase">Generate</button>
+              </form>
+            </div>
+          </div>
+          
+          {% if notes %}
+            <div class="bg-green-100 w-full rounded-2xl">
+              <div class="m-8 max-h-screen overflow-y-auto">
+                <h1 class='text-xl font-semibold'>Notes</h1>
+                  {% if notes %}
+                    {{ notes | safe }}
+                  {% endif %}
+              </div>
+            </div>
+          {% endif %}
+        </div>
+
+        <div class="flex flex-col gap-8 px-4 w-2/5">
+          
+          <div class="card bg-green-100 w-full">
+            <div class="card-body">
+              <h2 class="card-title mb-4">QnA chat</h2>
+              <div class="max-h-96 overflow-y-auto">
+                {% for msg in chat %}
+                  {% if msg['name'] == 'user' %}
+                    <div class="chat chat-end">
+                      <div class="chat-bubble chat-bubble-neutral">{{ msg['message'] }}</div>
+                    </div>
+                  {% else %}
+                    <div class="chat chat-start">
+                      <div class="chat-bubble chat-bubble-primary">{{ msg['message'] }}</div>
+                    </div>
+                  {% endif %}
+                {% endfor %}      
+              </div>        
+              <br>
+              <form method="post" enctype="multipart/form-data">
+                <div class="join w-full">
+                  <input type="text" name="question" placeholder="Ask a question" class="input input-bordered w-full join-item" required/>
+                  <button type="submit" class="btn btn-primary btn-square join-item">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 opacity-100"><path d="M24 0l-6 22-8.129-7.239 7.802-8.234-10.458 7.227-7.215-1.754 24-12zm-15 16.668v7.332l3.258-4.431-3.258-2.901z"/></svg>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+          
+        </div>
+        
+    </body>
+</html>

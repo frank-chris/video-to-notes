@@ -1,6 +1,7 @@
 from typing import List, Optional
 from llama import Dialog, Llama
 import json
+import time
 
 class TextToNotes:
     def __init__(self, ckpt_dir: str,
@@ -8,7 +9,7 @@ class TextToNotes:
                  temperature: float = 0.6,
                  top_p: float = 0.9,
                  max_seq_len: int = 8192,
-                 max_batch_size: int = 6,
+                 max_batch_size: int = 8,
                  max_gen_len: Optional[int] = None,):
         self.ckpt_dir = ckpt_dir
         self.tokenizer_path = tokenizer_path
@@ -52,9 +53,13 @@ class TextToNotes:
         return chunks, chunk_summary_length
 
     def generate_chunk_summary(self, text: str, summary_length: int = 250, generate_glossary: bool = False): 
-        context_prompt = f"Here's a text transcript of a part of a lecture: \n\n{text}"
-        summary_prompt = f"Summarize the transcript to a summary without exceeding {summary_length} words, but close to it."
-        glossary_prompt = "Generate a glossary of key terms and their definitions as bullet points."
+        context_prompt = f"Here's a text transcript of a part of a lecture: \n\n{text}\n\n\
+        The timestamp is included at the end of each sentence in the format (timestamp: <TIMESTAMP>)."
+        summary_prompt = f"Summarize the transcript to a summary of close to {summary_length} words, but don't exceed it. \
+        Make sure to carry over the timestamps in the same format with every sentence in the summary. \
+        If there are multiple timestamps for a sentence in the summary, keep the first one."
+        glossary_prompt = "Generate a glossary of key terms and their definitions as html list using <ul> and <li> tags. \
+            Do not add any introductory text."
         dialogs: List[Dialog] = [
             [
                 {"role": "user", "content": context_prompt},
@@ -84,12 +89,18 @@ class TextToNotes:
         total_words = len(text.split())
 
         dialogs : List[Dialog] = []
-        summary_prompt = f"Summarize the lecture to a {summary_length} words (approximate) summary."
-        glossary_prompt = "Generate a glossary of key terms and their definitions as bullet points."
-        takeaways_prompt = "Generate a list of 5 to 15 key takeaways from the lecture as bullet points."
+        summary_prompt = f"Summarize the lecture to a {summary_length} words (approximate) summary. \
+        Make sections with headings when necessary. Include the timestamp along with every heading \
+        and with every 5th or 6th sentence in the same format without the word 'timestamp'. Enclose headings in h3 html tags."
+        glossary_prompt = "Generate a glossary of key terms and their definitions as html list using <ul> and <li> tags. \
+            Do not add any introductory text."
+        takeaways_prompt = "Generate a list of 5 to 10 key takeaways from the lecture as html list using <ul> and <li> tags. \
+            Do not add any introductory text."
         context_prompt = f"Here's a text transcript of a lecture: \n\n"
+        context_prompt_end = "\n\nThe timestamp is included at the end of each sentence in the format (timestamp: <TIMESTAMP>)."
 
         if total_words > self.max_seq_len:
+            print('chunking')
             chunks, chunk_summary_length = self.split_to_chunks(text, total_words)
 
             # generate summaries and glossaries for each chunk and combine them
@@ -106,41 +117,42 @@ class TextToNotes:
         else:
             if generate_glossary:
                 dialogs.append([
-                    {"role": "user", "content": context_prompt + text},
+                    {"role": "user", "content": context_prompt + text + context_prompt_end},
                     {"role": "user", "content": glossary_prompt},
                 ])
             
 
         dialogs.append([
-            {"role": "user", "content": context_prompt + text},
+            {"role": "user", "content": context_prompt + text + context_prompt_end},
             {"role": "user", "content": summary_prompt},
         ])
         if generate_takeaways:
             dialogs.append([
-                {"role": "user", "content": context_prompt + text},
+                {"role": "user", "content": context_prompt + text + context_prompt_end},
                 {"role": "user", "content": takeaways_prompt},
             ])
-        
+        start_time = time.time()
         results = self.generator.chat_completion(
             dialogs,
             max_gen_len=self.max_gen_len,
             temperature=self.temperature,
             top_p=self.top_p,
         )
-
+        end_time = time.time()
+        print(f"Time taken: {end_time - start_time} seconds")
         notes = {"summary": None, "takeaways": None, "glossary": None}
         if total_words > self.max_seq_len:
             if generate_glossary:
                 notes["glossary"] = glossary
-            notes["summary"] = results[0]['generation']['content']
+            notes["summary"] = results.pop(0)['generation']['content']
             if generate_takeaways:
-                notes["takeaways"] = results[1]['generation']['content']
+                notes["takeaways"] = results.pop(0)['generation']['content']
         else:
             if generate_glossary:
-                notes["glossary"] = results[0]['generation']['content']
-            notes["summary"] = results[1]['generation']['content']
+                notes["glossary"] = results.pop(0)['generation']['content']
+            notes["summary"] = results.pop(0)['generation']['content']
             if generate_takeaways:
-                notes["takeaways"] = results[2]['generation']['content']
+                notes["takeaways"] = results.pop(0)['generation']['content']
     
         if save_path:
             with open(save_path, 'w') as file:
@@ -148,11 +160,35 @@ class TextToNotes:
 
         return notes
 
+    def answer_question(self, question, context, input_file_path):
+        dialogs = [
+            [
+                {"role": "user", "content": question},
+            ]
+        ]
+        
+        if input_file_path:
+            text = self.read_text(input_file_path)
+        context_prompt = f"Here's the text transcript from a lecture: \n\n"
+
+        if input_file_path and (len(text.split()) < (self.max_seq_len - 100)): 
+            dialogs[0].insert(0, {"role": "user", "content": context_prompt + text})
+        elif context:
+            dialogs[0].insert(0, {"role": "user", "content": context_prompt + ' '.join(context)}) ## 
+
+        results = self.generator.chat_completion(
+            dialogs,
+            max_gen_len=self.max_gen_len,
+            temperature=self.temperature,
+            top_p=self.top_p,
+        )
+
+        return results[0]['generation']['content']
 
 if __name__ == "__main__":
     ckpt_dir = "../llama3/Meta-Llama-3-8B-Instruct/"
     tokenizer_path = "../llama3/Meta-Llama-3-8B-Instruct/tokenizer.model"
-    text_path = "../engraft.txt"
+    text_path = "../transcription_result_with_timestamp.txt"
     text_to_notes = TextToNotes(ckpt_dir, tokenizer_path)
-    notes = text_to_notes.generate_notes(text_path, summary_length=250, generate_takeaways=True, 
+    notes = text_to_notes.generate_notes(text_path, summary_length=500, generate_takeaways=True, 
                                          generate_glossary=True, save_path="../notes.json")
